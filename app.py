@@ -4,9 +4,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, r2_score
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+#import tensorflow as tf
+#from tensorflow import keras
+#from tensorflow.keras import layers
+# 添加替代的机器学习库
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
+
+
 import streamlit as st
 import io
 import base64
@@ -14,6 +19,12 @@ import base64
 # 设置页面
 st.set_page_config(page_title="中央空调负荷预测与节能优化", layout="wide")
 st.title("🌡️ 中央空调系统负荷预测与节能优化算法演示")
+
+# 修改模型创建函数
+def create_ml_model(input_shape):
+    """创建替代的机器学习模型"""
+    return RandomForestRegressor(n_estimators=100, random_state=42)
+
 
 # 生成模拟数据
 @st.cache_data
@@ -317,17 +328,16 @@ def main():
     
     elif app_mode == "负荷预测":
         st.header("🔮 中央空调负荷预测")
+        st.info("使用随机森林模型进行负荷预测")
         
-        st.info("使用基于注意力机制的BiTCN-BiGRU模型进行负荷预测")
-        
-        # 数据预处理
+        # 数据预处理（保持不变）
         features = ['outdoor_temp', 'outdoor_humidity', 'wet_bulb_temp', 'cooling_load']
         target = 'cooling_load'
         
         # 创建滞后特征
         data_lagged = data.copy()
         for feature in features:
-            data_lagged[f'{feature}_lag1'] = data_lagged[feature].shift(4)  # 1小时前（4个15分钟）
+            data_lagged[f'{feature}_lag1'] = data_lagged[feature].shift(4)
         
         data_lagged = data_lagged.dropna()
         
@@ -343,7 +353,8 @@ def main():
         scaler_y = MinMaxScaler()
         
         X_scaled = scaler_X.fit_transform(X)
-        y_scaled = scaler_y.fit_transform(y.reshape(-1, 1))
+        y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
+
         
         # 创建时间序列数据
         def create_sequences(X, y, time_steps=24):
@@ -368,26 +379,15 @@ def main():
             if st.button("训练预测模型"):
                 with st.spinner("训练模型中..."):
                     # 创建模型
-                    model = create_bitcn_bigru_attention_model(
-                        input_shape=(time_steps, len(feature_cols)),
-                        filters=32,  # 简化模型用于演示
-                        kernel_size=3,
-                        gru_units=32
-                    )
+                    model = RandomForestRegressor(n_estimators=100, random_state=42)
                     
                     # 训练模型
-                    history = model.fit(
-                        X_train, y_train,
-                        batch_size=64,
-                        epochs=50,
-                        validation_data=(X_test, y_test),
-                        verbose=0
-                    )
+                    model.fit(X_train, y_train)
                     
                     # 预测
-                    y_pred_scaled = model.predict(X_test, verbose=0)
-                    y_pred = scaler_y.inverse_transform(y_pred_scaled).flatten()
-                    y_true = scaler_y.inverse_transform(y_test).flatten()
+                    y_pred_scaled = model.predict(X_test)
+                    y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+                    y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1)).flatten()
                     
                     # 计算指标
                     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
@@ -551,7 +551,7 @@ def main():
                     energy_model = CentralACEnergyModel()
                     
                     # 模拟优化前后的参数变化
-                    hours = list(range(24))
+                    hours = range(24)
                     original_params = {
                         'T_cws': [28 + 2*np.sin(2*np.pi*h/24) for h in hours],
                         'T_chws': [10 + 1*np.sin(2*np.pi*h/24 + np.pi/4) for h in hours],
