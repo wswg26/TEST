@@ -326,157 +326,157 @@ def main():
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
     
-   elif app_mode == "负荷预测":
-     st.header("🔮 中央空调负荷预测")
-    
-     st.info("使用随机森林模型进行负荷预测")
-    
-     try:
-        # 数据预处理 - 使用更简单的方法
-        features = ['outdoor_temp', 'outdoor_humidity', 'wet_bulb_temp', 'hour', 'day_of_week', 'is_weekend']
-        target = 'cooling_load'
+    elif app_mode == "负荷预测":
+        st.header("🔮 中央空调负荷预测")
         
-        # 准备特征和目标变量
-        X = data[features].copy()
-        y = data[target].copy()
+        st.info("使用随机森林模型进行负荷预测")
         
-        # 检查数据
-        st.write("数据统计信息:")
-        st.write(f"特征形状: {X.shape}")
-        st.write(f"目标变量形状: {y.shape}")
-        st.write(f"NaN值统计 - 特征: {X.isna().sum().sum()}, 目标: {y.isna().sum()}")
-        
-        # 确保没有NaN值
-        if X.isna().sum().sum() > 0 or y.isna().sum() > 0:
-            st.warning("数据中存在NaN值，正在清理...")
-            X = X.fillna(X.mean())
-            y = y.fillna(y.mean())
-        
-        # 数据标准化 - 更安全的处理方式
-        scaler_X = MinMaxScaler()
-        scaler_y = MinMaxScaler()
-        
-        X_scaled = scaler_X.fit_transform(X)
-        y_scaled = scaler_y.fit_transform(y.values.reshape(-1, 1)).flatten()
-        
-        # 检查标准化后的数据
-        st.write(f"标准化后特征形状: {X_scaled.shape}")
-        st.write(f"标准化后目标形状: {y_scaled.shape}")
-        
-        # 划分训练测试集
-        split_idx = int(0.8 * len(X_scaled))
-        X_train, X_test = X_scaled[:split_idx], X_scaled[split_idx:]
-        y_train, y_test = y_scaled[:split_idx], y_scaled[split_idx:]
-        
-        st.write(f"训练集大小: {X_train.shape}, 测试集大小: {X_test.shape}")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("模型训练")
-            if st.button("训练预测模型"):
-                with st.spinner("训练模型中..."):
-                    # 创建模型 - 使用更简单的参数
-                    model = RandomForestRegressor(
-                        n_estimators=50,  # 减少树的数量
-                        max_depth=10,     # 限制深度
-                        random_state=42,
-                        n_jobs=-1
-                    )
-                    
-                    # 训练模型
-                    model.fit(X_train, y_train)
-                    
-                    # 预测
-                    y_pred_scaled = model.predict(X_test)
-                    y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
-                    y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1)).flatten()
-                    
-                    # 计算指标
-                    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-                    r2 = r2_score(y_true, y_pred)
-                    
-                    st.success(f"模型训练完成！")
-                    st.metric("RMSE", f"{rmse:.2f} RT")
-                    st.metric("R² Score", f"{r2:.4f}")
-                    
-                    # 特征重要性
-                    feature_importance = pd.DataFrame({
-                        'feature': features,
-                        'importance': model.feature_importances_
-                    }).sort_values('importance', ascending=False)
-                    
-                    st.subheader("特征重要性")
-                    st.dataframe(feature_importance)
-                    
-                    # 保存结果用于展示
-                    st.session_state['y_true'] = y_true
-                    st.session_state['y_pred'] = y_pred
-                    st.session_state['model_trained'] = True
-        
-        with col2:
-            if 'model_trained' in st.session_state and st.session_state['model_trained']:
-                st.subheader("预测结果")
-                
-                # 绘制预测结果
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(st.session_state['y_true'][:100], label='真实值', alpha=0.7, linewidth=2)
-                ax.plot(st.session_state['y_pred'][:100], label='预测值', alpha=0.7, linewidth=2)
-                ax.set_xlabel('时间点')
-                ax.set_ylabel('冷负荷 (RT)')
-                ax.set_title('负荷预测结果 (前100个样本)')
-                ax.legend()
-                ax.grid(True, alpha=0.3)
-                st.pyplot(fig)
-                
-                # 误差分析
-                errors = st.session_state['y_true'] - st.session_state['y_pred']
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-                
-                ax1.hist(errors, bins=30, alpha=0.7, edgecolor='black', color='skyblue')
-                ax1.set_xlabel('预测误差 (RT)')
-                ax1.set_ylabel('频次')
-                ax1.set_title('预测误差分布')
-                ax1.axvline(x=0, color='red', linestyle='--', linewidth=2)
-                
-                ax2.scatter(st.session_state['y_true'], st.session_state['y_pred'], alpha=0.5, color='green')
-                ax2.plot([st.session_state['y_true'].min(), st.session_state['y_true'].max()], 
-                        [st.session_state['y_true'].min(), st.session_state['y_true'].max()], 
-                        'r--', linewidth=2)
-                ax2.set_xlabel('真实值 (RT)')
-                ax2.set_ylabel('预测值 (RT)')
-                ax2.set_title('真实值 vs 预测值')
-                ax2.grid(True, alpha=0.3)
-                
-                st.pyplot(fig)
-                
-    except Exception as e:
-        st.error(f"发生错误: {str(e)}")
-        st.info("尝试使用简化版本...")
-        
-        # 简化版本
         try:
-            from sklearn.linear_model import LinearRegression
+            # 数据预处理 - 使用更简单的方法
+            features = ['outdoor_temp', 'outdoor_humidity', 'wet_bulb_temp', 'hour', 'day_of_week', 'is_weekend']
+            target = 'cooling_load'
             
-            # 使用最简单的特征
-            simple_features = ['outdoor_temp', 'hour']
-            X_simple = data[simple_features]
-            y_simple = data[target]
+            # 准备特征和目标变量
+            X = data[features].copy()
+            y = data[target].copy()
             
-            # 简单的线性回归
-            simple_model = LinearRegression()
-            simple_model.fit(X_simple, y_simple)
-            y_pred_simple = simple_model.predict(X_simple)
+            # 检查数据
+            st.write("数据统计信息:")
+            st.write(f"特征形状: {X.shape}")
+            st.write(f"目标变量形状: {y.shape}")
+            st.write(f"NaN值统计 - 特征: {X.isna().sum().sum()}, 目标: {y.isna().sum()}")
             
-            rmse_simple = np.sqrt(mean_squared_error(y_simple, y_pred_simple))
-            r2_simple = r2_score(y_simple, y_pred_simple)
+            # 确保没有NaN值
+            if X.isna().sum().sum() > 0 or y.isna().sum() > 0:
+                st.warning("数据中存在NaN值，正在清理...")
+                X = X.fillna(X.mean())
+                y = y.fillna(y.mean())
             
-            st.success("简化模型训练完成！")
-            st.metric("RMSE (简化模型)", f"{rmse_simple:.2f} RT")
-            st.metric("R² Score (简化模型)", f"{r2_simple:.4f}")
+            # 数据标准化 - 更安全的处理方式
+            scaler_X = MinMaxScaler()
+            scaler_y = MinMaxScaler()
             
-        except Exception as e2:
-            st.error(f"简化模型也失败: {str(e2)}")
+            X_scaled = scaler_X.fit_transform(X)
+            y_scaled = scaler_y.fit_transform(y.values.reshape(-1, 1)).flatten()
+            
+            # 检查标准化后的数据
+            st.write(f"标准化后特征形状: {X_scaled.shape}")
+            st.write(f"标准化后目标形状: {y_scaled.shape}")
+            
+            # 划分训练测试集
+            split_idx = int(0.8 * len(X_scaled))
+            X_train, X_test = X_scaled[:split_idx], X_scaled[split_idx:]
+            y_train, y_test = y_scaled[:split_idx], y_scaled[split_idx:]
+            
+            st.write(f"训练集大小: {X_train.shape}, 测试集大小: {X_test.shape}")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("模型训练")
+                if st.button("训练预测模型"):
+                    with st.spinner("训练模型中..."):
+                        # 创建模型 - 使用更简单的参数
+                        model = RandomForestRegressor(
+                            n_estimators=50,  # 减少树的数量
+                            max_depth=10,     # 限制深度
+                            random_state=42,
+                            n_jobs=-1
+                        )
+                        
+                        # 训练模型
+                        model.fit(X_train, y_train)
+                        
+                        # 预测
+                        y_pred_scaled = model.predict(X_test)
+                        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+                        y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1)).flatten()
+                        
+                        # 计算指标
+                        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+                        r2 = r2_score(y_true, y_pred)
+                        
+                        st.success(f"模型训练完成！")
+                        st.metric("RMSE", f"{rmse:.2f} RT")
+                        st.metric("R² Score", f"{r2:.4f}")
+                        
+                        # 特征重要性
+                        feature_importance = pd.DataFrame({
+                            'feature': features,
+                            'importance': model.feature_importances_
+                        }).sort_values('importance', ascending=False)
+                        
+                        st.subheader("特征重要性")
+                        st.dataframe(feature_importance)
+                        
+                        # 保存结果用于展示
+                        st.session_state['y_true'] = y_true
+                        st.session_state['y_pred'] = y_pred
+                        st.session_state['model_trained'] = True
+            
+            with col2:
+                if 'model_trained' in st.session_state and st.session_state['model_trained']:
+                    st.subheader("预测结果")
+                    
+                    # 绘制预测结果
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    ax.plot(st.session_state['y_true'][:100], label='真实值', alpha=0.7, linewidth=2)
+                    ax.plot(st.session_state['y_pred'][:100], label='预测值', alpha=0.7, linewidth=2)
+                    ax.set_xlabel('时间点')
+                    ax.set_ylabel('冷负荷 (RT)')
+                    ax.set_title('负荷预测结果 (前100个样本)')
+                    ax.legend()
+                    ax.grid(True, alpha=0.3)
+                    st.pyplot(fig)
+                    
+                    # 误差分析
+                    errors = st.session_state['y_true'] - st.session_state['y_pred']
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+                    
+                    ax1.hist(errors, bins=30, alpha=0.7, edgecolor='black', color='skyblue')
+                    ax1.set_xlabel('预测误差 (RT)')
+                    ax1.set_ylabel('频次')
+                    ax1.set_title('预测误差分布')
+                    ax1.axvline(x=0, color='red', linestyle='--', linewidth=2)
+                    
+                    ax2.scatter(st.session_state['y_true'], st.session_state['y_pred'], alpha=0.5, color='green')
+                    ax2.plot([st.session_state['y_true'].min(), st.session_state['y_true'].max()], 
+                            [st.session_state['y_true'].min(), st.session_state['y_true'].max()], 
+                            'r--', linewidth=2)
+                    ax2.set_xlabel('真实值 (RT)')
+                    ax2.set_ylabel('预测值 (RT)')
+                    ax2.set_title('真实值 vs 预测值')
+                    ax2.grid(True, alpha=0.3)
+                    
+                    st.pyplot(fig)
+                    
+        except Exception as e:
+            st.error(f"发生错误: {str(e)}")
+            st.info("尝试使用简化版本...")
+            
+            # 简化版本
+            try:
+                from sklearn.linear_model import LinearRegression
+                
+                # 使用最简单的特征
+                simple_features = ['outdoor_temp', 'hour']
+                X_simple = data[simple_features]
+                y_simple = data[target]
+                
+                # 简单的线性回归
+                simple_model = LinearRegression()
+                simple_model.fit(X_simple, y_simple)
+                y_pred_simple = simple_model.predict(X_simple)
+                
+                rmse_simple = np.sqrt(mean_squared_error(y_simple, y_pred_simple))
+                r2_simple = r2_score(y_simple, y_pred_simple)
+                
+                st.success("简化模型训练完成！")
+                st.metric("RMSE (简化模型)", f"{rmse_simple:.2f} RT")
+                st.metric("R² Score (简化模型)", f"{r2_simple:.4f}")
+                
+            except Exception as e2:
+                st.error(f"简化模型也失败: {str(e2)}")
     
     elif app_mode == "节能优化":
         st.header("💡 中央空调节能优化")
