@@ -326,12 +326,12 @@ def main():
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
     
-  elif app_mode == "负荷预测":
-    st.header("🔮 中央空调负荷预测")
+   elif app_mode == "负荷预测":
+     st.header("🔮 中央空调负荷预测")
     
-    st.info("使用随机森林模型进行负荷预测")
+     st.info("使用随机森林模型进行负荷预测")
     
-    try:
+     try:
         # 数据预处理 - 使用更简单的方法
         features = ['outdoor_temp', 'outdoor_humidity', 'wet_bulb_temp', 'hour', 'day_of_week', 'is_weekend']
         target = 'cooling_load'
