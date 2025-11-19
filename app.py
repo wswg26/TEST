@@ -551,7 +551,7 @@ def main():
                     energy_model = CentralACEnergyModel()
                     
                     # 模拟优化前后的参数变化
-                    hours = range(24)
+                    hours = list(range(24))
                     original_params = {
                         'T_cws': [28 + 2*np.sin(2*np.pi*h/24) for h in hours],
                         'T_chws': [10 + 1*np.sin(2*np.pi*h/24 + np.pi/4) for h in hours],
